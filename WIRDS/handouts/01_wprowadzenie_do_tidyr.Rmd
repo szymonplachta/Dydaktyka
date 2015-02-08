@@ -1,0 +1,198 @@
+---
+title: "WIRDS: wprowadzenie do tidyr"
+author: "Maciej Beręsewicz"
+date: "20 Jan 2015"
+output: slidy_presentation
+---
+
+## Pakiet tidyr
+
+Celem prezentacji jest wprowadzenie do nowego pakietu [tidyr](https://github.com/hadley/tidyr). Dodatkowo wykorzystywać będziemy potokowe przetwarzanie danych, które poznaliśmy przy okazji korzystania z pakietu [magrittr](http://cran.r-project.org/web/packages/magrittr/index.html) oraz [dplyr](https://github.com/hadley/dplyr).
+
+## Wprowadzenie do tidyr
+
+Hadley Wickham zaproponował pojęcie "tidy data" jako danych przygotowanych specjalnie do przeprowadzania analiz. Szczegóły można znaleźć w poniższym [artykule](http://www.jstatsoft.org/v59/i10/paper).
+
+![](http://www.jstatsoft.org/v59/i10/paper)
+
+## Podstawowe funkcje 
+
+- gather - funkcja do przetworzenia zbioru do typu "long"
+- spread - funkcja do przetworzenia zbioru do typu "wide"
+- separate - funkcja do zastąpienia danej kolumny przez utworzone na podstawie jej rozdzielenia
+- extract - funkcja do wyciągania z kolumny wartości według określonego wyrażenia regularnego
+- extract_numeric - funkcja do wyciągania wartości numerycznych z określonej kolumny
+- expand - funkcja do tworzenia wszystkich możliwych kombinacji zmiennych
+- unite - funkcja do sklejania kolumn
+
+## Przygotowanie danych (1)
+
+Zajmiemy się ponownie przykładem danych pochodzących z badania [Diagnoza Społeczna](www.diagnoza.com), które są dostępne w pakiecie Diagnoza stworzonym przez dr hab. Przemysława Biecka.
+
+```{r diagnoza_install,eval=FALSE}
+install.packages(devtools)
+library(devtools)
+install_github('pbiecek/Diagnoza')
+```
+
+```{r diagnoza_read_data,warning=FALSE,message=FALSE}
+library(Diagnoza)
+library(dplyr)
+library(tidyr)
+gosp <- tbl_df(gospodarstwa)
+dim(gosp)
+```
+
+## Przygotowanie danych (2)
+
+Wybierzemy taki sam podzbiór danych, jak w przypadku wprowadzenia do pakietu dplyr.
+
+```{r gosp_select}
+gosp_subset <- gosp %>%
+                select(numer_gd, starts_with('WAGA'), 
+                       contains('ekw'), contains('woje')) %>%
+                mutate_each(funs(as.numeric(.) ), everything()) 
+gosp_subset
+```
+
+## Przykład układu danych typu wide (szeroki)
+
+Dane typu wide charakteryzują się następującymi własnościami:
+- każdy rekord oznacza jednostkę / działanie
+- kolumny oznaczają zmienne / charakterystyki
+
+```{r dane_wide}
+dane_wide <- data.frame(A = 1:5, Dochod_2010 = rnorm(5), Dochod_2011 = rnorm(5))
+dane_wide
+```
+
+## Przykład układu danych typu long (długi)
+
+Dane typu long charakteryzują się następującymi własnościami:
+- jeden lub więcej rekordów dotyczy jednej jednostki / działania
+- kolumny oznaczają identyfikatory jednostek (np. grupy)
+- jest jedna kolumna ze zmienną oraz druga, która zawiera wartości tej zmiennej
+
+```{r dane_long}
+dane_long <- data.frame(A = rep(1:5,each = 2), 
+                        Zmienna = rep(c('Dochod_2010','Dochod_2011'),5),
+                        Wartosc = rnorm(10))
+dane_long
+```
+
+## Podstawowe funkcje - gather (1)
+
+Funkcja gather ma następujące argumenty
+
+- data - zbiór wejściowy (typu wide), w przypadku przetwarzania potokowego pomijamy ten argument lub zapisujemy data = .
+- key - zmienna, która zawierać będzie nazwy kolumn (zmiennych)
+- value - zmienna, która zawierać będzie wartości kolumn (zmiennych)
+- ... - trzy kropki oznaczają przekazywanie zmiennych, które może odbywać się następująco
+    + zmienna_1:zmienna_n - wskazujemy, które zmienne chcemy wstawić do zmiennej key
+    + -id_1, -id_2 - wskazujemy, które zmienne wykluczamy z włączenia do zmiennej key i zostają one automatycznie stworzone zmiennymi identyfikującymi
+- na.rm - (logiczny) określamy czy chcemy aby w zmiennej zostały braki danych
+- convert - (logiczny) określamy czy chcemy aby zmienne zostały przetworzone do tego samego typu (np. numeric, integer, logical)
+
+## Podstawowe funkcje - gather (2)
+
+Funkcja gather umożliwa przejście ze zbioru typu wide na zbiór typu long. Załóżmy, że chcemy otrzymać zbiór w którym znajdować się będą identyfikatory jednostek, zmienna określająca dochód ekwiwalentny oraz zmienna określająca wartość tego dochodu.
+
+```{r diagnoza_gather}
+gosp_subset %>%
+  select(numer_gd,contains('ekw')) %>%
+  gather(Dochod, Wartosc_Dochodu, -numer_gd)
+```
+
+## Podstawowe funkcje - gather (3)
+
+Jest to równoznaczne
+
+```{r diagnoza_gather2}
+gosp_subset %>%
+  select(numer_gd,contains('ekw')) %>%
+  gather(Dochod, Wartosc_Dochodu, adoch_m_00_ekwb:gdoch_m_osoba_ekw)
+```
+
+## Podstawowe funkcje - spread (1)
+
+Funkcja gather ma następujące argumenty:
+
+- data - zbiór wejściowy (typu long), w przypadku przetwarzania potokowego pomijamy ten argument lub zapisujemy data = .
+- key - zmienna, która zawiera nazwy nowo tworzonych kolumn (zmiennych)
+- value - zmienna, która zawiera wartości nowo tworzonych kolumn kolumn (zmiennych)
+- fill - określenie w jaki sposób mają być reprezentowane braki danych  
+- drop - (logiczny) określamy czy zmienne mają zachować etykiety (factor levels)
+- convert - (logiczny) określamy czy chcemy aby zmienne zostały przetworzone do tego samego typu (np. numeric, integer, logical)
+
+## Podstawowe funkcje - spread (2)
+
+Celem jest stworzenie tabeli, w której wiersze odnosić się będą do gospodarstwa domowego natomiast kolumny będą to kolejne numery województw. Tabela wypełniona będzie wartościami zawartymi w zmiennej WAGA_GD_2013.
+
+```{r diagnoza_spread}
+gosp_subset %>%
+  filter(!is.na(WOJEWODZTWO) & !is.na(WAGA_GD_2013)) %>%
+  select(numer_gd,WOJEWODZTWO,WAGA_GD_2013) %>%
+  spread(key = WOJEWODZTWO,value = WAGA_GD_2013, fill=0)
+```
+
+## Podstawowe funkcje - separate (1)
+
+Funkcja separate służy do zastąpienia istniejacej kolumny nowymi, które powstały na podstawie podziału wejściowej kolumny. Najczęściej z taką sytuacją mamy do czynienia w przypadku gdy kolumny są typu znakowego/napisami.
+
+Funkcja separate ma następujące argumenty:
+- data - zbiór wejściowy
+- col - kolumna, która ma zostać rozdzielona
+- into - wektor z nazwami kolumn, które mają powstać w wyniku podziału zmiennej określonej w col
+- sep - separator według, którego chcemy podzielić daną kolumnę
+- remove - (logiczna) czy chcemy usunąć rozdzielaną kolumnę ze zbioru danych 
+- extra - co zrobić jeżeli liczba kolumn nie zgadza się z liczbą założoną w argumencie into
+
+## Podstawowe funkcje - separate (2)
+
+Poniżej przykład jak działa funkcja separate:
+
+```{r separate}
+df <- data.frame(x = c("a.b", "a.d", "b.c"))
+df %>% separate(x, c("A", "B"))
+df <- data.frame(x = c("a_b_c", "a_d_d", "b_c_g"))
+df %>% separate(x, c("A", "B","C"),'_')
+```
+
+## Podstawowe funkcje - separate (3)
+
+Przetestujmy teraz działanie funkcji na podstawie danych z Diagnozy Społeczniej
+
+```{r gosp_separate}
+gosp_subset %>%
+  select(numer_gd,WAGA_GD_2000:WAGA_GD_2013) %>%
+  gather(Weight,Value,-numer_gd)
+```
+
+## Podstawowe funkcje - separate (4)
+
+Rozdzielmy teraz kolumnę weight na trzy nowe kolumny
+
+```{r gosp_separate2}
+gosp_subset %>%
+  select(numer_gd,WAGA_GD_2000:WAGA_GD_2013) %>%
+  gather(Weight,Value,-numer_gd) %>%
+  separate(Weight,c('Weight','GD','YEAR'),sep = '_')
+```
+
+## Podstawowe funkcje - extract_numeric
+
+W pakiecie znajduje się również funkcja do ekstrakcji numerów z kolumn. Poniżej przykład z funkcji separate.
+
+```{r gosp_extr_numeric}
+gosp_subset %>%
+  select(numer_gd,WAGA_GD_2000:WAGA_GD_2013) %>%
+  gather(Weight,Value,-numer_gd) %>%
+  mutate(Year = extract_numeric(Weight))
+```
+
+## Więcej informacji
+
+- http://cran.r-project.org/web/packages/tidyr/vignettes/tidy-data.html
+- http://stackoverflow.com/questions/tagged/r+tidyr?sort=active&pageSize=50
+
+

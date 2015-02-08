@@ -1,0 +1,400 @@
+---
+title: 'WIRDS: Wprowadzenie do dplyr'
+author: "Maciej Beręsewicz"
+date: ''
+output:
+  slidy_presentation:
+    highlight: pygments
+    keep_md: yes
+  ioslides_presentation: default
+  beamer_presentation: default
+---
+
+## Wprowadzenie
+
+Celem prezentacji jest wprowadzenie do nowego pakietu [dplyr](https://github.com/hadley/dplyr). Dodatkowo poznamy potokowy sposób przetwarzania danych, który wcześniej nie był dostępny w R, a niedawno został zaimplementowany w pakiecie [magrittr](http://cran.r-project.org/web/packages/magrittr/index.html).
+
+## Potokowe przetwarzanie danych
+
+Załóżmy następującą sytuację: mamy dostępny zbiór danych, który przetwarzamy, a następnie na wyniku tego przetworzenia działamy dalej. 
+
+W skrócie tę ideę możemy zapisać następująco:
+
+dane [następnie] przetwórz [następnie] przetwórz wynik [następnie] zapisz wynik
+
+## Przykłady potokowego przetwarzania danych
+
+Pipeline vs metchod chaining to podejścia znane chociażby z bash (|) lub Pythona. 
+
+Bash:
+```{bash}
+cd ~/Documents/Downloads/Zbiory\ danych/
+ls *.txt | grep 'GT' | wc -l
+  16
+```
+
+Python:
+
+```{python}
+>>> a = 'text \n\n\n'
+>>> a
+'text \n\n\n'
+>>> a.replace('\n',' ').strip().upper()
+'TEXT'
+```
+
+## Przetwarzanie potokowe w R
+
+Przetwarzanie potokowe w R jest oprogramowane w pakiecie **magrittr**. Znajdziemy tam następujące operatory:
+
+- %>% - operator przekazania wyników do kolejnego polecenia (czytamy: then)
+- %T>% - operator przekazania obiektu do polecenia przy czym nie zwracany jest jego wynik (korzystamy do tworzenia wykresów w trakcie przetwarzania)
+- %<>% - operator, który nadpisuje istniejący obiekt
+
+Najczęściej wykorzystywanym operatorem jest %>%, który stał się "kultowy" - tworzone są koszulki [LINK](http://teespring.com/ceci-n-est-pas-une-pipe_copy_1), ciasta [LINK] czy kubki [LINK](https://twitter.com/hadleywickham/status/494875052467167232/photo/1) :)
+
+## magrittr - przykład zastosowania (1)
+
+```{r magrittr1}
+library(magrittr)
+### podsumowanie dla jednej zmiennej
+mtcars$mpg %>% summary()
+### co jest równoznaczne
+summary(mtcars$mpg)
+```
+
+## magrittr - przykład zastosowania (2)
+
+Stworzymy podsumowanie tabelaryczne dla zmiennej gear, a następnie wykres słupkowy.
+
+```{r magrittr2}
+## co jest równoważne barplot(table(mtcars$gear))
+mtcars$gear %>% table() %>% barplot()
+```
+
+## magrittr - przykład zastosowania (3)
+
+```{r magrittr3}
+mtcars %>% sapply(.,class) %>% unique()
+## co jest równoważne 
+unique(sapply(mtcars,class))
+```
+
+## 
+
+Przejdźmy teraz do pakietu dplyr
+
+## Informacje o pakiecie
+
+```{r dplyr_intro}
+citation('dplyr')
+```
+
+## dplyr: A Grammar of Data Manipulation
+
+Pakiet zawiera implementację najważniejszych funkcji do przetwarzania danych, które ułatwiają podstawową (a również bardziej zaawansowaną) pracę z obiektami typu data.frame. Pakiet obsługuje zarówno obiekty klasy data.frame, jak również data.table. Stworzony został również obiekt klasy tbl_*, który jest "zoptymalizowany" do pracy z pakietem dplyr. Pakiet jest napisany w języku C++.
+
+Dodatkowo pakiet zawiera:
+
+- integrację z bazami danych (SQlite, Postgres)
+- implementację tłumaczenia z i do języka SQL
+- szybsze łączenie tabel 
+- przetwarzanie i łączenie list
+
+## dplyr - wprowadzenie (1)
+
+Przyjrzyjmy się pracy w pakiecie dplyr z wykorzystaniem operatora %>%.
+
+```{r dplyr_intro2,warning=FALSE,message=FALSE}
+library(dplyr)
+mtcars %>%  tbl_df()
+```
+
+## dplyr - wprowadzenie (2)
+
+Podstawowe funkcje oprogramowane w pakiecie dplyr:
+
+- select - funkcja do wybierania i usuwania kolumn z obiektu 
+- rename - funkcja do zmiany nazw kolumn
+- filter - funkcja do filtrowania danych
+- arrange - funkcja do sortowania zbioru danych
+- group_by/ungroup - funkcja do grupowania zbioru danych
+- mutate - funkcja do przetwarzania zbioru danych (działania na kolumnach)
+- mutate_each - funkcja do przetwarzania wielu kolumn w jedym poleceniu
+- transmute - zwraca nową zmienną
+- summarise - funkcja do podsumowywania zbioru danych
+- summarise_each - funkcja do podsumowywania wielu zmiennych w jednym poleceniu
+- do - funkcja do wykonywania działań, których wynikem nie jest jedna liczba (np. obiekt klasy lm)
+- distinct - funkcja do pobierania wartości unikalnych
+
+## Praca z dużym zbiorem danych
+
+Popracujemy teraz ze zbioram danych z badania [Diagnoza Społeczna](www.diagnoza.com), który jest dostępny w pakiecie Diagnoza stworzonym przed dr hab. Przemysława Biecka.
+
+```{r diagnoza_install,eval=FALSE}
+install.packages(devtools)
+library(devtools)
+install_github('pbiecek/Diagnoza')
+```
+
+Wczytamy pakiet oraz zbiór danych dot. Gospodarstw Domowych, który zapiszemy do obiektu klasy tbl_df.
+
+```{r diagnoza_read_data}
+library(Diagnoza)
+gosp <- tbl_df(gospodarstwa)
+dim(gosp)
+```
+
+## Wstępne przetwarzania
+
+Aby wydajnie pracować ze zbiorem trzeba stworzyć słownik zmiennych, które zawarte są w zbiorze danych.
+
+```{r diagnoza_dictionary}
+dictionary <- gosp %>%
+                attributes() %>%
+                .$variable.labels %>%
+                data_frame(col_name = names(.), col_label = .)
+dictionary
+```
+
+## Wykorzystanie funkcji select
+
+W pierwszej kolejności nauczymy się wybierać zmienne za pomocą funkcji select. Warto zapoznać się z poniższymi funkcjami, które ułatwiają wybór kolumn:
+
+- starts_with(x, ignore.case = TRUE): zmienne rozpoczynające się od x
+- ends_with(x, ignore.case = TRUE): zmienne kończące się na x
+- contains(x, ignore.case = TRUE): zmienne zawierające x
+- matches(x, ignore.case = TRUE): zmienne spełniające wyrażenie regularne x
+- num_range("x", 1:5, width = 2): wybiera wszystkie zmienne x kończące się na 1:5
+- one_of("x", "y", "z"): zmienne, które znajdują się w wektorze znakowym
+- everything(): wybiera wszystkie zmienne
+
+Jeżeli chcemy usunąć zmienne wstawiamy przed nimi znak -
+
+## Wykorzystanie funkcji select
+
+Wybierzemy numer identyfikacyjny gospodarstwa (numer_gd), zmienne określjące wagę (analityczną) dla gospodarstwa domowego, zmienne dotyczące dochodu ekwiwalentnego oraz województwo.
+
+```{r gosp_select}
+gosp_subset <- gosp %>%
+                select(numer_gd, ## numer gosp
+                       starts_with('WAGA'), ## waga analityczna przypisana do gospodarstwa
+                       contains('ekw'),### zmienne zawierające dochód ekwiwalentny
+                       contains('woje')) ### określająca województwo
+gosp_subset
+```
+
+## Wykorzystanie funkcji mutate_each
+
+Aby dalej pracować ze zbiorem danych musimy usunąć atrybuty kolumn z wagami.
+
+```{r gosp_mutate_each}
+gosp_subset <- gosp_subset %>%
+                mutate_each(funs( ### co ma być wynikem funkcji zapisujemy w funs
+                                as.numeric(.) ## funkcja, którą działamy (. = zmienna z listy)
+                                ), 
+                            everything()) ### wszystkie zmienne w zbiorze
+```
+
+
+## Wykorzystanie funkcji filter
+
+Wybierzemy teraz tylko te gospodarstwa, uczestniczyły w badaniu w 2011 oraz 2013 roku.
+
+```{r gosp_filter}
+gosp_subset <- gosp_subset %>%
+                  filter(WAGA_GD_2011 > 0 & WAGA_GD_2013 > 0)
+dim(gosp_subset) ### tylko tyle gospodarstw brało udział w badaniu
+gosp_subset
+```
+
+
+## Wykorzystanie funkcji summarise
+
+Sprawdzimy teraz do ilu sumują się wagi przypisane poszczególnym gospodarstwom domowym w 2011 i 20013 roku.
+
+```{r gosp_summarise}
+gosp_subset %>%
+  summarise(Wagi_2011 = sum(WAGA_GD_2011),
+            Wagi_2013 = sum(WAGA_GD_2013))
+```
+
+## Złączenie wszystkich operacji
+
+```{r gosp_wszystkie_operacje}
+gosp %>%
+    ### variable selection
+    select(numer_gd, 
+      starts_with('WAGA'), 
+      contains('ekw'), 
+      contains('woje')) %>%
+    ### variable mutation
+    mutate_each(funs(as.numeric(.)), 
+                everything()) %>%
+    ### filter rows
+    filter(WAGA_GD_2011 > 0 & WAGA_GD_2013 > 0) %>%
+    ### summarisation
+    summarise(Wagi_2011 = sum(WAGA_GD_2011),
+              Wagi_2013 = sum(WAGA_GD_2013))
+```
+
+## Funkcje zaimplementowane w pakiecie dplyr
+
+- n() - zwraca liczebności
+- row_number() - numeruje poszczególne wiersze
+- count() - zlicza wystąpienia poszczególnych identyfikatorów (w grupach, możliwe jest przeważenie i sortowanie)
+- tally() - zlicza wystąpienia (opakowanie funkcji summarise, sum i n(), możliwe jest przeważenie i sortowanie)
+- glimpse() - funkcja podsumowująca zbiór danych
+- nth(), first(), last() - funkcje do wynierania co n-tego elementu wektora, pierwszego, ostatniego
+- lead(), lag() - funkcje do przesunięcia danych (offset) w górę lub w dół
+- ntile(), min_rank(), dense_rank(), percent_rank(), cume_dist() - funkcje do rangowania
+- top_n() - pierwsze n wierszy
+- slice() - wybiera n-ty wiersz
+
+## Zastosowanie wbudowanych funkcji - count i tally (1.1)
+
+Zliczymy gospodarstwa domowe według województw. 
+
+```{r gosp_group_by1.1}
+gosp_subset %>% 
+  group_by(WOJEWODZTWO) %>% 
+  summarise(N=n()) %>%
+  arrange(desc(N))
+```
+
+## Zastosowanie wbudowanych funkcji - count i tally  (1.2)
+
+Zliczymy gospodarstwa domowe według województw. 
+
+```{r gosp_group_by1.2}
+gosp_subset %>% 
+  group_by(WOJEWODZTWO) %>% 
+  tally(., sort = T)
+```
+
+## Zastosowanie wbudowanych funkcji - count i tally  (1.3)
+
+Zliczymy gospodarstwa domowe według województw. 
+
+```{r gosp_group_by1.3}
+gosp_subset %>% 
+  count(WOJEWODZTWO, sort = T) 
+```
+
+## Zastosowanie wbudowanych funkcji - count i tally  (2.1)
+
+Użyjemy teraz zmiennej ważącej (WAGA_GD_2013) i wykonamy to samo ćwiczenie
+
+```{r gosp_group_by2.1}
+gosp_subset %>% 
+  group_by(WOJEWODZTWO) %>% 
+  summarise(N = sum(WAGA_GD_2013)) %>%
+  arrange(desc(N))
+```
+
+## Zastosowanie wbudowanych funkcji - count i tally  (2.2)
+
+Zliczymy gospodarstwa domowe według województw. 
+
+```{r gosp_group_by2.2}
+gosp_subset %>% 
+  group_by(WOJEWODZTWO) %>% 
+  tally(., wt = WAGA_GD_2013, sort = T)
+```
+
+## Zastosowanie wbudowanych funkcji - count i tally  (2.3)
+
+Zliczymy gospodarstwa domowe według województw. 
+
+```{r gosp_group_by2.3}
+gosp_subset %>% 
+  count(WOJEWODZTWO, wt = WAGA_GD_2013, sort = T) 
+```
+
+## Zastosowanie wbudowanych funkcji - rank
+
+Ostatni przykład rozbudujemy o dodatkową zmienną, która zawierać będzie rangi
+
+```{r gosp_rank}
+gosp_subset %>% 
+  count(WOJEWODZTWO, wt = WAGA_GD_2013, sort = T) %>%
+  mutate(RANGA = min_rank(n))
+```
+
+## Zastosowanie wbudowanych funkcji - top_n 
+
+Ostatni przykład rozbudujemy o wybór pięcu pierwszych wierszy na podstawie zmiennej n (suma wag)
+
+```{r gosp_top1}
+gosp_subset %>% 
+  count(WOJEWODZTWO, wt = WAGA_GD_2013, sort = T) %>%
+  mutate(RANGA = min_rank(n)) %>%
+  top_n(n = 5, wt = n)
+```
+
+
+## Zastosowanie wbudowanych funkcji - distinct
+
+Wybierzemy unikalne wartości dla zmiennej WOJEWODZTWO
+
+```{r gosp_distinct}
+gosp %>%
+  select(WOJEWODZTWO) %>%
+  distinct(WOJEWODZTWO)
+```
+
+
+## Podsumowania według grup - funkcja do (1)
+
+Przeprowadzimy teraz podsumowanie wybranych kolumn wg województw
+
+```{r gosp_do}
+summared_data <- gosp_subset %>%
+                  select(WOJEWODZTWO,contains('ekw')) %>%
+                  group_by(WOJEWODZTWO) %>%
+                    do(summary = summary(.$gdoch_m_osoba_ekw))
+head(summared_data)
+```
+
+## Podsumowania według grup - funkcja do (2)
+
+Przyjrzyjmy się w jaki sposób przetrzymywane są dane
+
+```{r gosp_do2.1}
+class(summared_data)
+```
+
+Wynik przetrzymywany jest w postaci obiektu data.frame.
+
+```{r gosp_do2.2}
+class(summared_data$summary) 
+```
+
+
+Natomiast wynik funkcji przypisany do zmiennej summary jest typu list. Wskazuje to na zagnieżdżenie wyników działań w data.frame.
+
+## Podsumowania według grup - funkcja do (3)
+
+Po wywołaniu obiektu summared_data$summary otrzymujemy:
+
+```{r gosp_do2.3}
+head(summared_data$summary)
+```
+
+## Podsumowania według grup - funkcja do (4)
+
+Połączmy dane wykorzystując funkcję unlist, rename, mutate i select
+
+```{r gosp_do3}
+comp_stats <- summary(gosp_subset$gdoch_m_osoba_ekw) %>% names()
+woj_names <- summared_data$WOJEWODZTWO
+
+unlist(summared_data$summary) %>%
+  data_frame(Value = .) %>%
+    mutate(Stat = rep(comp_stats,16),
+           Woj = rep(woj_names,each=7)) %>%
+    select(Woj,Stat,Value)
+```
+
+
+
