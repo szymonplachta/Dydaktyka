@@ -1,0 +1,7 @@
+### wczytanie danych z gospodarstw
+
+library(XLConnect)
+wb <- loadWorkbook('gospodarstwa.xls')
+gosp <- readWorksheet(wb,'gospodarstwa')
+vars <- readWorksheet(wb,'opis cech')
+vars_labels <- readWorksheet(wb,'opis wariantów cech)
