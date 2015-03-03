@@ -11,3 +11,4 @@ W jaki sposób korzystać z GitHub? Proszę zapoznać się z poniższymi linkami
 2. [Wprowadzenie do Git i GitHub od Hadleya](http://r-pkgs.had.co.nz/git.html)
 3. [Collaboration and time travel: version control with git, github and RStudio ](https://vimeo.com/119403805)
 4. [Dodawanie plików - merge a pull request](https://help.github.com/articles/merging-a-pull-request/)
+
