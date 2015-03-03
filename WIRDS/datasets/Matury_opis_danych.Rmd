@@ -1,0 +1,66 @@
+---
+title: "Informacje o zbiorze"
+author: "Maciej Beręsewicz"
+date: "3 Mar 2015"
+output:
+  html_document:
+    keep_md: yes
+---
+
+```{r,message=FALSE,warning=FALSE}
+library(dplyr)
+load('/Users/MaciejBeresewicz/Documents/Projects/RProjects/Dydaktyka/WIRDS/datasets/matury_kraj.RData')
+matury <- tbl_df(matury)
+```
+
+Informacje o zbiorze (**UWAGA** zbiór jest duży i zawiera `r nrow(matury)` wierszy)
+
+```{r podsumowanie}
+dim(matury)
+glimpse(matury)
+```
+
+Szczegółowe informacje o zbiorze można znaleźć na stronie: http://zpd.ibe.edu.pl/doku.php
+Jakie matury znajdują się w zbiorze danych?
+
+```{r matury}
+matury %>% count(matura_nazwa)
+```
+
+Oraz za jakie lata
+
+```{r rok_matury}
+matury %>% count(rok)
+```
+
+Informacje o zmiennych
+
+
+* id_szkoly             - identyfikator szkoły
+* rok                   - rok
+* id_obserwacji         - numer obserwacji
+* id_testu              - numer testu
+* plec                  - płeć ucznia
+* rocznik               - rok urodzenia
+* id_cke                - identyfikator centralnej komisji edukacyjnej
+* dysleksja             - czy uczeń jest dyslektykiem?
+* laureat               - czy uczeń jest laureatem?
+* pop_podejscie         - czy uczeń poprawiał egzami?
+* oke                   - identyfikator okręgowej komisji egzaminacyjnej
+* zrodlo                - źródło danych
+* typ_szkoly            - typ szkoły 
+* publiczna             - czy jest to szkoła publiczna?
+* dla_doroslych         - czy jest to szkoła dla dorosłych?
+* specjalna             - czy jest to szkoła specjalna?
+* przyszpitalna         - czy jest to szkoła przyszpitalna?
+* artystyczna           - czy jest to szkoła artystyczna?
+* id_szkoly_oke         - identyfikator szkoły
+* pna                   - kod pocztowy szkoły
+* wielkosc_miejscowosci - wielkość miejscowości (liczba mieszkańców)
+* matura_miedzynarodowa - czy była to matura międzynarodowa?
+* teryt_szkoly          - kod teryt szkoły (można użyć do wskazania powiatów, województw)
+* wojewodztwo           - nazwa województwa
+* rodzaj_gminy          - typ gminy
+* matura_nazwa          - nazwa matury
+* ID                    - identyfikator rekordu (nie jest potrzebny)
+* wyniki_matur          - suma punktów uzyskanych przez danego ucznia
